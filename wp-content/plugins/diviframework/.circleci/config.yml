@@ -1,0 +1,42 @@
+version: 2
+
+jobs:
+  build:
+    docker:
+      - image: circleci/php:7-cli
+      - image: circleci/mysql:5.7
+        environment:
+          MYSQL_ROOT_HOST: "%"
+          MYSQL_ROOT_PASSWORD: diviframework
+    working_directory: ~/wordpress
+    steps:
+      - run: 
+            command: 
+                sudo apt-get update;
+                sudo apt-get install mysql-client;
+                sudo apt-get install subversion;
+                sudo apt-get install wget;
+                dockerize -wait tcp://localhost:3306 -timeout 1m;
+                mysql -h 127.0.0.1 -u root -pdiviframework -e "create database wordpress";
+      - run:
+            command:
+                sudo docker-php-ext-install mysqli;
+                curl -O https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar;
+                chmod +x wp-cli.phar;
+                sudo cp wp-cli.phar /usr/local/bin/wp;
+                ./wp-cli.phar --version;
+                ./wp-cli.phar core download --allow-root;
+                ./wp-cli.phar core config --allow-root --dbname=wordpress --dbuser=root --dbhost=127.0.0.1 --dbpass=diviframework;
+                /usr/local/bin/php wp-cli.phar core install --allow-root --admin_name=diviframework --admin_password=diviframework --admin_email=ketan.shah@mrkdevelopment.com --url=http://df-video-toolkit.dev:8080 --title=WordPress;
+                mkdir -p /home/circleci/.ssh;
+                ssh-keyscan bitbucket.org >> ~/.ssh/known_hosts;
+                git clone git@bitbucket.org:mrkdevelopment/diviframework.git wp-content/plugins/diviframework;
+                ./wp-cli.phar plugin activate diviframework;
+                /usr/local/bin/php wp-cli.phar plugin list;
+
+                cd wp-content/plugins/diviframework;
+                bash bin/install-wp-locally.sh;
+                wget https://phar.phpunit.de/phpunit.phar;
+                chmod +x phpunit.phar;
+
+                ./phpunit.phar;
